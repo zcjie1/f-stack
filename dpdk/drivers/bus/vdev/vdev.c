@@ -20,7 +20,6 @@
 #include <rte_spinlock.h>
 #include <rte_string_fns.h>
 #include <rte_errno.h>
-#include <eal_private.h>
 
 #include "bus_vdev_driver.h"
 #include "vdev_logs.h"
@@ -434,6 +433,10 @@ vdev_action(const struct rte_mp_msg *mp_msg, const void *peer)
 				VDEV_LOG(INFO, "vdev with no name is not sent");
 				continue;
 			}
+			if(dev->device.devargs->policy == RTE_DEV_NOSHARE) {
+				VDEV_LOG(INFO, "vdev %s is not shareable", devname);
+				continue;
+			}
 			VDEV_LOG(INFO, "send vdev, %s", devname);
 			strlcpy(ou->name, devname, RTE_DEV_NAME_MAX_LEN);
 			if (rte_mp_sendmsg(&mp_resp) < 0)
@@ -469,7 +472,6 @@ vdev_scan(void)
 	struct rte_vdev_device *dev;
 	struct rte_devargs *devargs;
 	struct vdev_custom_scan *custom_scan;
-	struct internal_config *internal_conf = eal_get_internal_configuration();
 
 	if (rte_mp_action_register(VDEV_MP_KEY, vdev_action) < 0 &&
 	    rte_errno != EEXIST) {
@@ -481,7 +483,7 @@ vdev_scan(void)
 		return -1;
 	}
 
-	if (!internal_conf->no_shvdev && rte_eal_process_type() == RTE_PROC_SECONDARY) {
+	if (rte_eal_process_type() == RTE_PROC_SECONDARY) {
 		struct rte_mp_msg mp_req, *mp_rep;
 		struct rte_mp_reply mp_reply;
 		struct timespec ts = {.tv_sec = 5, .tv_nsec = 0};

@@ -61,6 +61,7 @@ do { \
 enum rte_dev_policy {
 	RTE_DEV_ALLOWED,
 	RTE_DEV_BLOCKED,
+	RTE_DEV_NOSHARE,
 };
 
 /**
