@@ -590,7 +590,9 @@ port_cfg_handler(struct ff_config *cfg, const char *section,
         cur->port_id = portid;
     }
 
-    if(strcmp(name, "vdev_param") == 0) {
+    if(strcmp(name, "queues") == 0) {
+        cur->nb_queues = atoi(value);
+    } else if(strcmp(name, "vdev_param") == 0) {
         cur->vdev_param = strdup(value);
         cfg->dpdk.nb_vdev++;
     } else if (strcmp(name, "if_name") == 0) {

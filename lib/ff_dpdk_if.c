@@ -271,32 +271,26 @@ init_lcore_conf(void)
         uint16_t port_id = ff_global_cfg.dpdk.portid_list[j];
         struct ff_port_cfg *pconf = &ff_global_cfg.dpdk.port_cfgs[port_id];
 
-        int queueid = -1;
-        int i;
-        for (i = 0; i < pconf->nb_lcores; i++) {
-            if (pconf->lcore_list[i] == lcore_id) {
-                queueid = i;
-            }
-        }
-        if (queueid < 0) {
-            continue;
-        }
-        printf("lcore: %u, port: %u, queue: %u\n", lcore_id, port_id, queueid);
-        uint16_t nb_rx_queue = lcore_conf.nb_rx_queue;
-        lcore_conf.rx_queue_list[nb_rx_queue].port_id = port_id;
-        lcore_conf.rx_queue_list[nb_rx_queue].queue_id = queueid;
-        lcore_conf.nb_rx_queue++;
+        int queueid, i;
+        for(i = 0; i < pconf->nb_queues; i++) {
+            queueid = i;
+            printf("lcore: %u, port: %u, queue: %u\n", lcore_id, port_id, queueid);
+            uint16_t nb_rx_queue = lcore_conf.nb_rx_queue;
+            lcore_conf.rx_queue_list[nb_rx_queue].port_id = port_id;
+            lcore_conf.rx_queue_list[nb_rx_queue].queue_id = queueid;
+            lcore_conf.nb_rx_queue++;
 
-        lcore_conf.tx_queue_id[port_id] = queueid;
-        lcore_conf.tx_port_id[lcore_conf.nb_tx_port] = port_id;
-        lcore_conf.nb_tx_port++;
+            lcore_conf.tx_queue_id[port_id] = queueid;
+            lcore_conf.tx_port_id[lcore_conf.nb_tx_port] = port_id;
+            lcore_conf.nb_tx_port++;
+        }
 
         /* Enable pcap dump */
         if (ff_global_cfg.pcap.enable) {
             ff_enable_pcap(ff_global_cfg.pcap.save_path, ff_global_cfg.pcap.snap_len);
         }
 
-        lcore_conf.nb_queue_list[port_id] = pconf->nb_lcores;
+        lcore_conf.nb_queue_list[port_id] = pconf->nb_queues;
     }
 
     if (lcore_conf.nb_rx_queue == 0) {
@@ -412,7 +406,7 @@ init_dispatch_ring(void)
     for (j = 0; j < nb_ports; j++) {
         uint16_t portid = ff_global_cfg.dpdk.portid_list[j];
         struct ff_port_cfg *pconf = &ff_global_cfg.dpdk.port_cfgs[portid];
-        int nb_queues = pconf->nb_lcores;
+        int nb_queues = pconf->nb_queues;
         if (dispatch_ring[portid] == NULL) {
             snprintf(name_buf, RTE_RING_NAMESIZE, "ring_ptr_p%d", portid);
 
@@ -599,7 +593,7 @@ init_port_start(void)
         if (i < nb_ports) {
             u_port_id = ff_global_cfg.dpdk.portid_list[i];
             pconf = &ff_global_cfg.dpdk.port_cfgs[u_port_id];
-            nb_queues = pconf->nb_lcores;
+            nb_queues = pconf->nb_queues;
             nb_slaves = pconf->nb_slaves;
 
             if (nb_slaves > 0) {
@@ -655,28 +649,30 @@ init_port_start(void)
             if (pconf) {
                 rte_memcpy(pconf->mac,
                     addr.addr_bytes, RTE_ETHER_ADDR_LEN);
-
-                /* Set RSS mode */
-                uint64_t default_rss_hf = RTE_ETH_RSS_PROTO_MASK;
-                port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
-                port_conf.rx_adv_conf.rss_conf.rss_hf = default_rss_hf;
-                if (dev_info.hash_key_size == 52) {
-                    rsskey = default_rsskey_52bytes;
-                    rsskey_len = 52;
-                }
-                if (ff_global_cfg.dpdk.symmetric_rss) {
-                    printf("Use symmetric Receive-side Scaling(RSS) key\n");
-                    rsskey = symmetric_rsskey;
-                }
-                port_conf.rx_adv_conf.rss_conf.rss_key = rsskey;
-                port_conf.rx_adv_conf.rss_conf.rss_key_len = rsskey_len;
-                port_conf.rx_adv_conf.rss_conf.rss_hf &= dev_info.flow_type_rss_offloads;
-                if (port_conf.rx_adv_conf.rss_conf.rss_hf !=
-                        RTE_ETH_RSS_PROTO_MASK) {
-                    printf("Port %u modified RSS hash function based on hardware support,"
-                            "requested:%#"PRIx64" configured:%#"PRIx64"\n",
-                            port_id, default_rss_hf,
-                            port_conf.rx_adv_conf.rss_conf.rss_hf);
+                
+                if(dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_RSS_HASH) {
+                    /* Set RSS mode */
+                    uint64_t default_rss_hf = RTE_ETH_RSS_PROTO_MASK;
+                    port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
+                    port_conf.rx_adv_conf.rss_conf.rss_hf = default_rss_hf;
+                    if (dev_info.hash_key_size == 52) {
+                        rsskey = default_rsskey_52bytes;
+                        rsskey_len = 52;
+                    }
+                    if (ff_global_cfg.dpdk.symmetric_rss) {
+                        printf("Use symmetric Receive-side Scaling(RSS) key\n");
+                        rsskey = symmetric_rsskey;
+                    }
+                    port_conf.rx_adv_conf.rss_conf.rss_key = rsskey;
+                    port_conf.rx_adv_conf.rss_conf.rss_key_len = rsskey_len;
+                    port_conf.rx_adv_conf.rss_conf.rss_hf &= dev_info.flow_type_rss_offloads;
+                    if (port_conf.rx_adv_conf.rss_conf.rss_hf !=
+                            RTE_ETH_RSS_PROTO_MASK) {
+                        printf("Port %u modified RSS hash function based on hardware support,"
+                                "requested:%#"PRIx64" configured:%#"PRIx64"\n",
+                                port_id, default_rss_hf,
+                                port_conf.rx_adv_conf.rss_conf.rss_hf);
+                    }
                 }
 
                 if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
@@ -935,7 +931,7 @@ static int
 create_tcp_flow(uint16_t port_id, uint16_t tcp_port) {
   struct rte_flow_attr attr = {.ingress = 1};
   struct ff_port_cfg *pconf = &ff_global_cfg.dpdk.port_cfgs[port_id];
-  int nb_queues = pconf->nb_lcores;
+  int nb_queues = pconf->nb_queues;
   uint16_t queue[RTE_MAX_QUEUES_PER_PORT];
   int i = 0, j = 0;
   for (i = 0, j = 0; i < nb_queues; ++i)

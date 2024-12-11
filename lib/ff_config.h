@@ -119,6 +119,7 @@ struct ff_vlan_cfg {
 struct ff_port_cfg {
     char *name;
     char *ifname;
+    int nb_queues;
     char *vdev_param;
     uint16_t port_id;
     uint8_t mac[6];
