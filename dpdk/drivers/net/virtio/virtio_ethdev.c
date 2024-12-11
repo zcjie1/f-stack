@@ -1708,7 +1708,7 @@ set_rxtx_funcs(struct rte_eth_dev *eth_dev)
 				eth_dev->data->port_id);
 			eth_dev->tx_pkt_burst = virtio_xmit_pkts_inorder;
 		} else {
-			PMD_INIT_LOG(INFO, "virtio: using standard Tx path on port %u",
+			PMD_INIT_LOG(ERR, "virtio: using standard Tx path on port %u",
 				eth_dev->data->port_id);
 			eth_dev->tx_pkt_burst = virtio_xmit_pkts;
 		}

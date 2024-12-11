@@ -1003,10 +1003,14 @@ virtio_recv_pkts(void *rx_queue, struct rte_mbuf **rx_pkts, uint16_t nb_pkts)
 	struct virtio_net_hdr *hdr;
 
 	nb_rx = 0;
-	if (unlikely(hw->started == 0))
+	if (unlikely(hw->started == 0)) {
+		// printf("??????\n");
 		return nb_rx;
+	}
+		
 
 	nb_used = virtqueue_nused(vq);
+	// printf("nb_used: %u", nb_used);
 
 	num = likely(nb_used <= nb_pkts) ? nb_used : nb_pkts;
 	if (unlikely(num > VIRTIO_MBUF_BURST_SZ))
@@ -1016,6 +1020,7 @@ virtio_recv_pkts(void *rx_queue, struct rte_mbuf **rx_pkts, uint16_t nb_pkts)
 
 	num = virtqueue_dequeue_burst_rx(vq, rcv_pkts, len, num);
 	PMD_RX_LOG(DEBUG, "used:%d dequeue:%d", nb_used, num);
+	// printf("virtio_user prepare to receive %u packets\n", num);
 
 	nb_enqueued = 0;
 	hdr_size = hw->vtnet_hdr_size;
@@ -1059,6 +1064,7 @@ virtio_recv_pkts(void *rx_queue, struct rte_mbuf **rx_pkts, uint16_t nb_pkts)
 	}
 
 	rxvq->stats.packets += nb_rx;
+	// printf("virtio_user receive %u packets\n", nb_rx);
 
 	/* Allocate new mbuf for the used descriptor */
 	if (likely(!virtqueue_full(vq))) {
@@ -1216,12 +1222,16 @@ virtio_recv_pkts_inorder(void *rx_queue,
 	int32_t i;
 
 	nb_rx = 0;
-	if (unlikely(hw->started == 0))
+	if (unlikely(hw->started == 0)) {
+		printf("???????\n");
 		return nb_rx;
+	}
+		
 
 	nb_used = virtqueue_nused(vq);
 	nb_used = RTE_MIN(nb_used, nb_pkts);
 	nb_used = RTE_MIN(nb_used, VIRTIO_MBUF_BURST_SZ);
+	// printf("virtio_user nb_used: %u\n", nb_used);
 
 	PMD_RX_LOG(DEBUG, "used:%d", nb_used);
 
@@ -1231,6 +1241,7 @@ virtio_recv_pkts_inorder(void *rx_queue,
 	hdr_size = hw->vtnet_hdr_size;
 
 	num = virtqueue_dequeue_rx_inorder(vq, rcv_pkts, len, nb_used);
+	// printf("prepare to receive %u packets\n", num);
 
 	for (i = 0; i < num; i++) {
 		struct virtio_net_hdr_mrg_rxbuf *header;
@@ -1343,6 +1354,7 @@ virtio_recv_pkts_inorder(void *rx_queue,
 		}
 	}
 
+	// printf("really receive %u packets\n", nb_rx);
 	rxvq->stats.packets += nb_rx;
 
 	/* Allocate new mbuf for the used descriptor */

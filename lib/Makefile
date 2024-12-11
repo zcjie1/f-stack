@@ -32,7 +32,7 @@ HOST_OS:=$(shell uname -s)
 
 # No DPDK KNI support on FreeBSD
 ifneq ($(TGT_OS),FreeBSD)
-FF_KNI=1
+# FF_KNI=1
 #FF_KNI_KNI=1
 endif
 

@@ -180,7 +180,7 @@ static void
 check_all_ports_link_status(void)
 {
     #define CHECK_INTERVAL 100 /* 100ms */
-    #define MAX_CHECK_TIME 90  /* 9s (90 * 100ms) in total */
+    #define MAX_CHECK_TIME 200  /* 20s (200 * 100ms) in total */
 
     uint16_t portid;
     uint8_t count, all_ports_up, print_flag = 0;
@@ -574,16 +574,16 @@ init_port_start(void)
     uint16_t i, j;
 
     total_nb_ports = nb_ports;
-#ifdef FF_KNI
-    if (enable_kni && rte_eal_process_type() == RTE_PROC_PRIMARY) {
-#ifdef FF_KNI_KNI
-        if (ff_global_cfg.kni.type == KNI_TYPE_VIRTIO)
-#endif
-        {
-            total_nb_ports *= 2;  /* one more virtio_user port for kernel per port */
-        }
-    }
-#endif
+// #ifdef FF_KNI
+//     if (enable_kni && rte_eal_process_type() == RTE_PROC_PRIMARY) {
+// #ifdef FF_KNI_KNI
+//         if (ff_global_cfg.kni.type == KNI_TYPE_VIRTIO)
+// #endif
+//         {
+//             total_nb_ports *= 2;  /* one more virtio_user port for kernel per port */
+//         }
+//     }
+// #endif
     for (i = 0; i < total_nb_ports; i++) {
         uint16_t port_id, u_port_id;
         struct ff_port_cfg *pconf = NULL;
@@ -1493,7 +1493,8 @@ process_packets(uint16_t port_id, uint16_t queue_id, struct rte_mbuf **bufs,
         if (filter == FILTER_ARP || filter == FILTER_NDP) {
 #else
         if (filter == FILTER_ARP) {
-#endif
+#endif      
+            // printf("Recevice an arp packet\n");
             struct rte_mempool *mbuf_pool;
             struct rte_mbuf *mbuf_clone;
             if (!pkts_from_ring) {
@@ -2136,6 +2137,8 @@ main_loop(void *arg)
                 MAX_PKT_BURST);
             if (nb_rx == 0)
                 continue;
+            
+            // printf("RX %d packets from port %u queue %u\n", nb_rx, port_id, queue_id);
 
             idle = 0;
 

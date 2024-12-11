@@ -499,6 +499,7 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 				    m->m_pkthdr.csum_data + proto));
 			uh_sum ^= 0xffff;
 		} else {
+			// printf("%s\n", __func__);
 			char b[9];
 
 			bcopy(((struct ipovly *)ip)->ih_x1, b, 9);

@@ -39,4 +39,5 @@ demo_server:
 	sudo ./demo/build/server --conf ./demo/server.ini --proc-type=primary --proc-id=0
 
 demo_client:
-	sudo ./demo/build/client --conf ./demo/client.ini --proc-type=secondary --proc-id=1
+	
+	sudo ./demo/build/client --conf ./demo/client.ini --proc-type=primary --proc-id=0
