@@ -104,23 +104,29 @@ parse_lcore_mask(struct ff_config *cfg, const char *coremask)
     if (i == 0)
         return 0;
 
+    /**
+     * idx: 当前遍历到的 lcore_id (包含 mask 无效位)
+     * count: 当前遍历到的有效 lcore 数量
+     */
     for (i = i - 1; i >= 0 && idx < RTE_MAX_LCORE; i--) {
         c = coremask[i];
+
+        // 判断是否为16进制符
         if (isxdigit(c) == 0) {
             return 0;
         }
-        val = xdigit2val(c);
+        val = xdigit2val(c); // 16进制转10进制
         for (j = 0; j < BITS_PER_HEX && idx < RTE_MAX_LCORE; j++, idx++) {
             if ((1 << j) & val) {
                 proc_lcore[count] = idx;
                 if (cfg->dpdk.proc_id == count) {
-                    zero_num = idx >> 2;
-                    shift = idx & 0x3;
+                    zero_num = idx >> 2; // 转换为16进制的后缀零个数
+                    shift = idx & 0x3; // 转换为16进制的有效位偏移
                     memset(zero,'0',zero_num);
                     snprintf(buf, sizeof(buf) - 1, "%llx%s",
-                        (unsigned long long)1<<shift, zero);
+                        (unsigned long long)1<<shift, zero); // 生成当前process对应的16进制lcore_mask
                     cfg->dpdk.proc_mask = strdup(buf);
-		}
+		        }
                 count++;
             }
         }
@@ -584,7 +590,10 @@ port_cfg_handler(struct ff_config *cfg, const char *section,
         cur->port_id = portid;
     }
 
-    if (strcmp(name, "if_name") == 0) {
+    if(strcmp(name, "vdev_param") == 0) {
+        cur->vdev_param = strdup(value);
+        cfg->dpdk.nb_vdev++;
+    } else if (strcmp(name, "if_name") == 0) {
         cur->ifname = strdup(value);
     } else if (strcmp(name, "addr") == 0) {
         cur->addr = strdup(value);
@@ -742,60 +751,6 @@ vlan_cfg_handler(struct ff_config *cfg, const char *section,
 }
 
 static int
-vdev_cfg_handler(struct ff_config *cfg, const char *section,
-    const char *name, const char *value) {
-
-    if (cfg->dpdk.nb_vdev == 0) {
-        fprintf(stderr, "vdev_cfg_handler: must config dpdk.nb_vdev first\n");
-        return 0;
-    }
-
-    if (cfg->dpdk.vdev_cfgs == NULL) {
-        struct ff_vdev_cfg *vc = calloc(RTE_MAX_ETHPORTS, sizeof(struct ff_vdev_cfg));
-        if (vc == NULL) {
-            fprintf(stderr, "vdev_cfg_handler malloc failed\n");
-            return 0;
-        }
-        cfg->dpdk.vdev_cfgs = vc;
-    }
-
-    int vdevid;
-    int ret = sscanf(section, "vdev%d", &vdevid);
-    if (ret != 1) {
-        fprintf(stderr, "vdev_cfg_handler section[%s] error\n", section);
-        return 0;
-    }
-
-    /* just return true if vdevid >= nb_vdev because it has no effect */
-    if (vdevid > cfg->dpdk.nb_vdev) {
-        fprintf(stderr, "vdev_cfg_handler section[%s] bigger than max vdev id\n", section);
-        return 1;
-    }
-
-    struct ff_vdev_cfg *cur = &cfg->dpdk.vdev_cfgs[vdevid];
-    if (cur->name == NULL) {
-        cur->name = strdup(section);
-        cur->vdev_id = vdevid;
-    }
-
-    if (strcmp(name, "iface") == 0) {
-        cur->iface = strdup(value);
-    } else if (strcmp(name, "path") == 0) {
-        cur->path = strdup(value);
-    } else if (strcmp(name, "queues") == 0) {
-        cur->nb_queues = atoi(value);
-    } else if (strcmp(name, "queue_size") == 0) {
-        cur->queue_size = atoi(value);
-    } else if (strcmp(name, "mac") == 0) {
-        cur->mac = strdup(value);
-    } else if (strcmp(name, "cq") == 0) {
-        cur->nb_cq = atoi(value);
-    }
-
-    return 1;
-}
-
-static int
 bond_cfg_handler(struct ff_config *cfg, const char *section,
     const char *name, const char *value) {
 
@@ -872,6 +827,8 @@ ini_parse_handler(void* user, const char* section, const char* name,
         pconfig->dpdk.memory = atoi(value);
     } else if (MATCH("dpdk", "no_huge")) {
         pconfig->dpdk.no_huge = atoi(value);
+    } else if (MATCH("dpdk", "no_pci")) {
+        pconfig->dpdk.no_pci = atoi(value);
     } else if (MATCH("dpdk", "lcore_mask")) {
         pconfig->dpdk.lcore_mask = strdup(value);
         return parse_lcore_mask(pconfig, pconfig->dpdk.lcore_mask);
@@ -883,8 +840,6 @@ ini_parse_handler(void* user, const char* section, const char* name,
         pconfig->dpdk.pci_whitelist = strdup(value);
     } else if (MATCH("dpdk", "port_list")) {
         return parse_port_list(pconfig, value);
-    } else if (MATCH("dpdk", "nb_vdev")) {
-        pconfig->dpdk.nb_vdev = atoi(value);
     } else if (MATCH("dpdk", "nb_bond")) {
         pconfig->dpdk.nb_bond = atoi(value);
     } else if (MATCH("dpdk", "promiscuous")) {
@@ -941,8 +896,6 @@ ini_parse_handler(void* user, const char* section, const char* name,
         return port_cfg_handler(pconfig, section, name, value);
     } else if (strncmp(section, "vlan", 4) == 0) {
         return vlan_cfg_handler(pconfig, section, name, value);
-    } else if (strncmp(section, "vdev", 4) == 0) {
-        return vdev_cfg_handler(pconfig, section, name, value);
     } else if (strncmp(section, "bond", 4) == 0) {
         return bond_cfg_handler(pconfig, section, name, value);
     } else if (strcmp(section, "pcap") == 0) {
@@ -970,6 +923,9 @@ dpdk_args_setup(struct ff_config *cfg)
     if (cfg->dpdk.no_huge) {
         dpdk_argv[n++] = strdup("--no-huge");
     }
+    if (cfg->dpdk.no_pci) {
+        dpdk_argv[n++] = strdup("--no-pci");
+    }
     if (cfg->dpdk.proc_mask) {
         sprintf(temp, "-c%s", cfg->dpdk.proc_mask);
         dpdk_argv[n++] = strdup(temp);
@@ -995,7 +951,7 @@ dpdk_args_setup(struct ff_config *cfg)
         dpdk_argv[n++] = strdup(temp);
     }
     if (cfg->dpdk.file_prefix) {
-        sprintf(temp, "--file-prefix=container-%s", cfg->dpdk.file_prefix);
+        sprintf(temp, "--file-prefix=ct-%s", cfg->dpdk.file_prefix);
         dpdk_argv[n++] = strdup(temp);
     }
     if (cfg->dpdk.pci_whitelist) {
@@ -1010,37 +966,13 @@ dpdk_args_setup(struct ff_config *cfg)
     }
 
     if (cfg->dpdk.nb_vdev) {
-        for (i=0; i<cfg->dpdk.nb_vdev; i++) {
-            sprintf(temp, "--vdev=virtio_user%d,path=%s",
-                cfg->dpdk.vdev_cfgs[i].vdev_id,
-                cfg->dpdk.vdev_cfgs[i].path);
-            if (cfg->dpdk.vdev_cfgs[i].nb_queues) {
-                sprintf(temp2, ",queues=%u",
-                    cfg->dpdk.vdev_cfgs[i].nb_queues);
-                strcat(temp, temp2);
+        for(i=0; i<cfg->dpdk.nb_ports; i++) {
+            uint16_t portid = cfg->dpdk.portid_list[i];
+            struct ff_port_cfg *pc = &cfg->dpdk.port_cfgs[portid];
+            if(pc->vdev_param) {
+                sprintf(temp, "--vdev=%s", pc->vdev_param);
+                dpdk_argv[n++] = strdup(temp);
             }
-            if (cfg->dpdk.vdev_cfgs[i].nb_cq) {
-                sprintf(temp2, ",cq=%u",
-                    cfg->dpdk.vdev_cfgs[i].nb_cq);
-                strcat(temp, temp2);
-            }
-            if (cfg->dpdk.vdev_cfgs[i].queue_size) {
-                sprintf(temp2, ",queue_size=%u",
-                    cfg->dpdk.vdev_cfgs[i].queue_size);
-                strcat(temp, temp2);
-            }
-            if (cfg->dpdk.vdev_cfgs[i].mac) {
-                sprintf(temp2, ",mac=%s",
-                    cfg->dpdk.vdev_cfgs[i].mac);
-                strcat(temp, temp2);
-            }
-            dpdk_argv[n++] = strdup(temp);
-        }
-        sprintf(temp, "--no-pci");
-        dpdk_argv[n++] = strdup(temp);
-        if (!cfg->dpdk.file_prefix) {
-            sprintf(temp, "--file-prefix=container");
-            dpdk_argv[n++] = strdup(temp);
         }
     }
 
@@ -1269,6 +1201,7 @@ ff_load_config(int argc, char *const argv[])
 {
     ff_default_config(&ff_global_cfg);
 
+    // 初始化 config_filename, proc_type, proc_id
     int ret = ff_parse_args(&ff_global_cfg, argc, argv);
     if (ret < 0) {
         return ret;

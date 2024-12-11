@@ -119,6 +119,7 @@ struct ff_vlan_cfg {
 struct ff_port_cfg {
     char *name;
     char *ifname;
+    char *vdev_param;
     uint16_t port_id;
     uint8_t mac[6];
     struct ff_hw_features hw_features;
@@ -157,17 +158,6 @@ struct ff_port_cfg {
 
     int nb_vlan;
     struct ff_vlan_cfg *vlan_cfgs[DPDK_MAX_VLAN_FILTER];
-};
-
-struct ff_vdev_cfg {
-    char *name;
-    char *iface;
-    char *path;
-    char *mac;
-    uint8_t vdev_id;
-    uint8_t nb_queues;
-    uint8_t nb_cq;
-    uint16_t queue_size;
 };
 
 struct ff_bond_cfg {
@@ -213,7 +203,8 @@ struct ff_config {
         int nb_channel;
         int memory;
         int no_huge;
-        int nb_procs;
+        int no_pci;
+        int nb_procs; // == nb_lcores
         int proc_id;
         int promiscuous;
         int nb_vdev;
@@ -233,7 +224,7 @@ struct ff_config {
         unsigned pkt_tx_delay;
 
         /* list of proc-lcore */
-        uint16_t *proc_lcore;
+        uint16_t *proc_lcore; // index = proc_id ; value = lcore_id
 
         int nb_ports;
         uint16_t max_portid;

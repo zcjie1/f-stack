@@ -753,6 +753,7 @@ init_port_start(void)
             }
 
             if (rte_eal_process_type() != RTE_PROC_PRIMARY) {
+                printf("Skip configuring port %d on secondary process\n", port_id);
                 continue;
             }
 
@@ -793,6 +794,7 @@ init_port_start(void)
                 }
             }
 
+            // BOND设备配置
             if (strncmp(dev_info.driver_name, BOND_DRIVER_NAME,
                     strlen(dev_info.driver_name)) == 0) {
 
