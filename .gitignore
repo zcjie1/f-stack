@@ -33,3 +33,4 @@ dpdk/.travis.yml
 .orange-ci.yml
 SMEDockerfile
 compile_commands.json
+demo/build
