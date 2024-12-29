@@ -1803,6 +1803,7 @@ send_burst(struct lcore_conf *qconf, uint16_t n, uint8_t port)
 {
     struct rte_mbuf **m_table;
     int ret;
+    int nb_sent = 0;
     uint16_t queueid;
 
     queueid = qconf->tx_queue_id[port];
@@ -1816,24 +1817,30 @@ send_burst(struct lcore_conf *qconf, uint16_t n, uint8_t port)
         }
     }
 
-    ret = rte_eth_tx_burst(port, queueid, m_table, n);
-    ff_traffic.tx_packets += ret;
-    uint16_t i;
-    for (i = 0; i < ret; i++) {
-        ff_traffic.tx_bytes += rte_pktmbuf_pkt_len(m_table[i]);
+    for(uint16_t j = 0; j <= queueid; j++) {
+        ret = rte_eth_tx_burst(port, j, m_table + nb_sent, n - nb_sent);
+        ff_traffic.tx_packets += ret;
+        uint16_t i;
+        for (i = 0; i < ret; i++) {
+            ff_traffic.tx_bytes += rte_pktmbuf_pkt_len(m_table[nb_sent + i]);
 #ifdef FF_USE_PAGE_ARRAY
-        if (qconf->tx_mbufs[port].bsd_m_table[i])
-            ff_enq_tx_bsdmbuf(port, qconf->tx_mbufs[port].bsd_m_table[i], m_table[i]->nb_segs);
+            if (qconf->tx_mbufs[port].bsd_m_table[i])
+                ff_enq_tx_bsdmbuf(port, qconf->tx_mbufs[port].bsd_m_table[i], m_table[i]->nb_segs);
 #endif
+        }
+        nb_sent += ret;
+        if(nb_sent == n)
+            break;
     }
-    if (unlikely(ret < n)) {
+    
+    if (unlikely(nb_sent < n)) {
         do {
-            rte_pktmbuf_free(m_table[ret]);
+            rte_pktmbuf_free(m_table[nb_sent]);
 #ifdef FF_USE_PAGE_ARRAY
             if ( qconf->tx_mbufs[port].bsd_m_table[ret] )
                 ff_mbuf_free(qconf->tx_mbufs[port].bsd_m_table[ret]);
 #endif
-        } while (++ret < n);
+        } while (++nb_sent < n);
     }
     return 0;
 }
