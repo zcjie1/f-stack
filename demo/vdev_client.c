@@ -37,12 +37,7 @@ int loop(void *arg)
 
     // 接收服务器的回显消息
     socklen_t addr_len;
-    // ssize_t recv_bytes = ff_recvfrom(sockfd, buffer, BUFFER_SIZE - 1, 0,
-    //                                     (struct linux_sockaddr *)&server_addr, &addr_len);
     ssize_t recv_bytes = ff_recv(sockfd, buffer, BUFFER_SIZE - 1, 0);
-    // if (recv_bytes < 0) {
-    //     sleep(1);
-    // }
 
     buffer[recv_bytes] = '\0'; // 确保字符串以null结尾
     printf("Received echo from server: %s\n", buffer);
@@ -64,21 +59,6 @@ int main(int argc, char * argv[])
     /* Set non blocking */
     int on = 1;
     ff_ioctl(sockfd, FIONBIO, &on);
-
-    struct sockaddr_in my_addr;
-    bzero(&my_addr, sizeof(my_addr));
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(8100);
-    my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    // inet_pton(AF_INET, SERVER_IP, &my_addr.sin_addr);
-
-    // 绑定UDP套接字到指定端口
-    int ret = ff_bind(sockfd, (struct linux_sockaddr *)&my_addr, sizeof(my_addr));
-    if (ret < 0) {
-        printf("ff_bind failed\n");
-        close(sockfd);
-        exit(1);
-    }
 
     bzero(&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;

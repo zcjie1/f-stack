@@ -25,26 +25,25 @@ socklen_t addr_len = sizeof(client_addr);
 
 int loop(void *arg)
 {
+    static uint64_t count;
+
     // 接收来自客户端的数据报
     ssize_t n = ff_recvfrom(sockfd, buffer, BUFFER_SIZE - 1, 0, 
                             (struct linux_sockaddr *)&client_addr, &addr_len);
-    // ssize_t n = ff_recv(sockfd, buffer, BUFFER_SIZE - 1, 0);
-    if (n < 0) {
-        // perror("ff_recvfrom error");
+    if (n < 0)
         return 0;
-    }
 
     buffer[n] = '\0'; // 确保字符串以null结尾
-    printf("Received message from %s:%d: %s\n",
+    printf("Received message[%lu] from %s:%d: %s\n", ++count,
             inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), buffer);
 
-    // 回显消息给客户端（可选）
+    // 回显消息给客户端
     ssize_t send_len = ff_sendto(sockfd, buffer, strlen(buffer), 0, 
                     (struct linux_sockaddr *)&client_addr, addr_len);
     if (send_len < 0) {
         perror("ff_sendto error");
     } else {
-        printf("Echo: %s\n", buffer);
+        printf("Echo message[%lu]: %s\n", count, buffer);
     }
     return 0;
 }
@@ -70,7 +69,6 @@ int main(int argc, char * argv[])
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(PORT);
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    // inet_pton(AF_INET, SERVER_IP, &my_addr.sin_addr);
 
     // 绑定UDP套接字到指定端口
     int ret = ff_bind(sockfd, (struct linux_sockaddr *)&my_addr, sizeof(my_addr));
