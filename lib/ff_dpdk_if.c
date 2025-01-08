@@ -246,10 +246,10 @@ init_lcore_conf(void)
         rte_exit(EXIT_FAILURE, "No probed ethernet devices\n");
     }
 
-    if (ff_global_cfg.dpdk.max_portid >= nb_dev_ports) {
-        rte_exit(EXIT_FAILURE, "this machine doesn't have port %d.\n",
-                 ff_global_cfg.dpdk.max_portid);
-    }
+    // if (ff_global_cfg.dpdk.max_portid >= nb_dev_ports) {
+    //     rte_exit(EXIT_FAILURE, "this machine doesn't have port %d.\n",
+    //              ff_global_cfg.dpdk.max_portid);
+    // }
 
     lcore_conf.port_cfgs = ff_global_cfg.dpdk.port_cfgs;
     lcore_conf.proc_id = ff_global_cfg.dpdk.proc_id;
@@ -385,6 +385,10 @@ create_ring(const char *name, unsigned count, int socket_id, unsigned flags)
         ring = rte_ring_lookup(name);
     }
 
+    if(ring == NULL && rte_eal_process_type() == RTE_PROC_SECONDARY) {
+        ring = rte_ring_create(name, count, socket_id, flags);
+    }
+
     if (ring == NULL) {
         rte_exit(EXIT_FAILURE, "create ring:%s failed!\n", name);
     }
@@ -467,7 +471,15 @@ init_msg_ring(void)
         message_pool = rte_mempool_lookup(FF_MSG_POOL);
     }
 
-    if (message_pool == NULL) {
+    if (message_pool == NULL && rte_eal_process_type() == RTE_PROC_SECONDARY) {
+        message_pool = rte_mempool_create(FF_MSG_POOL,
+           MSG_RING_SIZE * 2 * nb_procs,
+           MAX_MSG_BUF_SIZE, MSG_RING_SIZE / 2, 0,
+           NULL, NULL, ff_msg_init, NULL,
+           socketid, 0);
+    }
+
+    if(message_pool == NULL) {
         rte_panic("Create msg mempool failed\n");
     }
 
@@ -574,16 +586,16 @@ init_port_start(void)
     uint16_t i, j;
 
     total_nb_ports = nb_ports;
-// #ifdef FF_KNI
-//     if (enable_kni && rte_eal_process_type() == RTE_PROC_PRIMARY) {
-// #ifdef FF_KNI_KNI
-//         if (ff_global_cfg.kni.type == KNI_TYPE_VIRTIO)
-// #endif
-//         {
-//             total_nb_ports *= 2;  /* one more virtio_user port for kernel per port */
-//         }
-//     }
-// #endif
+#ifdef FF_KNI
+    if (enable_kni && rte_eal_process_type() == RTE_PROC_PRIMARY) {
+#ifdef FF_KNI_KNI
+        if (ff_global_cfg.kni.type == KNI_TYPE_VIRTIO)
+#endif
+        {
+            total_nb_ports *= 2;  /* one more virtio_user port for kernel per port */
+        }
+    }
+#endif
     for (i = 0; i < total_nb_ports; i++) {
         uint16_t port_id, u_port_id;
         struct ff_port_cfg *pconf = NULL;
@@ -748,7 +760,7 @@ init_port_start(void)
                 }
             }
 
-            if (rte_eal_process_type() != RTE_PROC_PRIMARY) {
+            if (rte_eal_process_type() != RTE_PROC_PRIMARY && !ff_global_cfg.dpdk.no_shvdev) {
                 printf("Skip configuring port %d on secondary process\n", port_id);
                 continue;
             }
@@ -843,7 +855,7 @@ init_port_start(void)
         }
     }
 
-    if (rte_eal_process_type() == RTE_PROC_PRIMARY) {
+    if (rte_eal_process_type() == RTE_PROC_PRIMARY || ff_global_cfg.dpdk.no_shvdev) {
         check_all_ports_link_status();
     }
 

@@ -831,6 +831,8 @@ ini_parse_handler(void* user, const char* section, const char* name,
         pconfig->dpdk.no_huge = atoi(value);
     } else if (MATCH("dpdk", "no_pci")) {
         pconfig->dpdk.no_pci = atoi(value);
+    } else if (MATCH("dpdk", "no_shvdev")) {
+        pconfig->dpdk.no_shvdev = atoi(value);
     } else if (MATCH("dpdk", "lcore_mask")) {
         pconfig->dpdk.lcore_mask = strdup(value);
         return parse_lcore_mask(pconfig, pconfig->dpdk.lcore_mask);
@@ -927,6 +929,9 @@ dpdk_args_setup(struct ff_config *cfg)
     }
     if (cfg->dpdk.no_pci) {
         dpdk_argv[n++] = strdup("--no-pci");
+    }
+    if (cfg->dpdk.no_shvdev) {
+        dpdk_argv[n++] = strdup("--no-shvdev");
     }
     if (cfg->dpdk.proc_mask) {
         sprintf(temp, "-c%s", cfg->dpdk.proc_mask);

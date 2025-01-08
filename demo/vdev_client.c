@@ -29,6 +29,7 @@ int loop(void *arg)
     ssize_t sent_bytes = ff_sendto(sockfd, message, strlen(message), 0,
                                     (struct linux_sockaddr *)&server_addr, sizeof(server_addr));
     if (sent_bytes < 0) {
+        sleep(1);
         perror("ff_sendto error");
         return 0;
     }

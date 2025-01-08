@@ -360,6 +360,7 @@ static int
 arprequest_internal(struct ifnet *ifp, const struct in_addr *sip,
     const struct in_addr *tip, u_char *enaddr)
 {
+	printf("arp requets!!!!!!!!!\n");
 	struct mbuf *m;
 	struct arphdr *ah;
 	struct sockaddr sa;

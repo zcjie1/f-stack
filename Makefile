@@ -40,3 +40,19 @@ demo_server:
 
 demo_client:
 	sudo ./demo/build/client --conf ./demo/client.ini --proc-type=primary --proc-id=0
+
+zcio_server:
+	sudo ./demo/build/server --conf ./demo/zcio_server.ini --proc-type=secondary --proc-id=0
+
+zcio_client:
+	sudo ./demo/build/client --conf ./demo/zcio_client.ini --proc-type=secondary --proc-id=1
+
+clean:
+	cd ./lib && \
+	make clean && \
+	cd ../tools && \
+	make clean && \
+	cd ../example && \
+	make clean && \
+	cd ../demo && \
+	make clean

@@ -14,7 +14,7 @@
 #include "ff_config.h"
 #include "ff_api.h"
 
-#define SERVER_IP "192.168.1.2" 
+#define SERVER_IP "192.168.2.1" 
 #define PORT 8080         // 服务监听的端口
 #define BUFFER_SIZE 1024  // 接收缓冲区大小
 

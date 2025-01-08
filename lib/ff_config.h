@@ -205,6 +205,7 @@ struct ff_config {
         int memory;
         int no_huge;
         int no_pci;
+        int no_shvdev;
         int nb_procs; // == nb_lcores
         int proc_id;
         int promiscuous;
