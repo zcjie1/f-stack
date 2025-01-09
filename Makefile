@@ -8,7 +8,7 @@ fstack: lib tool example demo
 dpdk_install:
 	cd ./dpdk && \
 	sudo rm -rf build && \
-	meson setup -Denable_kmods=true -Ddisable_libs=flow_classify build && \
+	meson setup -Ddisable_libs=flow_classify build && \
 	cd build && \
 	bear --output $(COMPILE_COMMANDS) --append -- ninja -j64 && \
 	sudo meson install && \
