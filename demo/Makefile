@@ -10,7 +10,7 @@ endif
 
 PKGCONF ?= pkg-config
 
-CFLAGS += -O0 -g -gdwarf-2 -I../lib $(shell $(PKGCONF) --cflags libdpdk)
+CFLAGS += -O3 -g -gdwarf-2 -Wno-address-of-packed-member -I../lib $(shell $(PKGCONF) --cflags libdpdk)
 
 LIBS+= $(shell $(PKGCONF) --static --libs libdpdk)
 LIBS+= -L${FF_PATH}/lib -Wl,--whole-archive,-lfstack,--no-whole-archive
